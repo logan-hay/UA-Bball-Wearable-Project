@@ -1,7 +1,7 @@
 # This file will contain main logic for cv operations
 
 from ultralytics import YOLO
-from utils import read_video, save_video
+from utils import read_video, create_video_writer
 from trackers import Tracker
 import cv2
 import numpy as np
@@ -12,87 +12,48 @@ from player_ball_assigner import PlayerBallAssigner
 #from speed_and_distance_estimator import SpeedAndDistance_Estimator
     
 def main():
-     # Read Video
-    video_frames, fps = read_video('input_videos/bball_4.mp4')
 
-    # Initialize Tracker
+    video_frames_gen, fps = read_video('input_videos/bball_4.mp4')
+
+    # Initialize services
     tracker = Tracker('models/models-new/best.pt')
+    #team_assigner = TeamAssigner()
+    #player_assigner = PlayerBallAssigner()
 
-    tracks = tracker.get_object_tracks(video_frames,
+    tracks = []
+    team_ball_control = []
+    # May add frame count
+
+    for frame_num, frame in enumerate(video_frames_gen):
+        print(f'Processing frame {frame_num}')
+
+        if frame_num == 0:
+            # Initialize video writer
+            frame_size = (frame.shape[1], frame.shape[0])  # (width, height)
+            video_writer = create_video_writer('output_videos/bball_4_output2.avi', fps, frame_size)
+
+            #team_assigner.assign_team_color(frame, tracks['players'][0])
+
+        # Get tracks *Edit to recieve individual frames (Check video to see if prior frames/batches are necessary)
+        tracks = tracker.get_object_tracks(video_frames,
                                        read_from_stub=False,
                                        stub_path='stubs/track_stubs.pkl')
-    # Get object positions 
-    tracker.add_position_to_tracks(tracks)
+        
+        # Get object positions 
+        tracker.add_position_to_tracks(tracks)
+        
+        # Assign player teams
 
-    # Assign Player Teams
-    team_assigner = TeamAssigner()
-    team_assigner.assign_team_color(video_frames[0], 
-                                    tracks['players'][0])
-    
-    for frame_num, player_track in enumerate(tracks['players']):
-        print(f'TEAMS for frame {frame_num}')
-        for player_id, track in player_track.items():
-            team = team_assigner.get_player_team(video_frames[frame_num],   
-                                                 track['bbox'],
-                                                 player_id)
-            print(f'Player ID: {player_id} \t Team: {team}')
-            tracks['players'][frame_num][player_id]['team'] = team 
-            tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
+        # Assign ball acquisition
 
-    
-    # Assign Ball Acquisition
-    player_assigner = PlayerBallAssigner()
-    team_ball_control= []
-    print(tracks)
-    for frame_num, player_track in enumerate(tracks['players']):
-        print('a')
-        try:
-            ball_bbox = tracks['ball'][frame_num][1]['bbox']
-            print(frame_num)
-            assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
+        # Draw annotations on the current frame *Edit to do individual frames (may be functional already)
+        annotated_frame = tracker.draw_annotations(frame, tracks, frame_num, team_ball_control)
 
-            if assigned_player != -1:
-                print('Successfully assigned ball to player + team...')
-                print(tracks['players'][frame_num][assigned_player]['team'])
-                tracks['players'][frame_num][assigned_player]['has_ball'] = True
-                team_ball_control.append(tracks['players'][frame_num][assigned_player]['team'])
-            else:
-                if len(team_ball_control) < 1:
-                    team_ball_control.append(3)
-                else:
-                    team_ball_control.append(team_ball_control[-1])
-                #team_ball_control.append(team_ball_control[-1])
-        except: 
-            print('Excepted...')
-            team_ball_control.append(1)
-            continue
-    team_ball_control = np.array(team_ball_control)
+        # Write the annotated frame directly to the video
+        video_writer.write(annotated_frame)
 
-
-    # Draw output 
-    ## Draw object Tracks
-    output_video_frames = tracker.draw_annotations(video_frames, tracks, team_ball_control)
-
-    print('============ __tracks =============')
-    print(tracks)
-
-    print('================= _ball_tracks ============')
-    print(tracks['ball'])
-
-   # print('============ _team_ball_control ============')
-   # print(f'type: {type(team_ball_control)}')
-   # print(f'shape: {team_ball_control.shape}')
-   # for i, team in enumerate(team_ball_control):
-   #     print(f'frame {i}: {team_ball_control[i]}')
-
-    ## Draw Camera movement
-    #output_video_frames = camera_movement_estimator.draw_camera_movement(output_video_frames,camera_movement_per_frame)
-
-    ## Draw Speed and Distance
-    #speed_and_distance_estimator.draw_speed_and_distance(output_video_frames,tracks)
-
-    # Save video
-    save_video(output_video_frames, 'output_videos/bball_4_output2.avi', fps)
+    # Release the video writer after processing all frames
+    video_writer.release()
 
 if __name__ == '__main__':
     main()
