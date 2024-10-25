@@ -13,7 +13,7 @@ from player_ball_assigner import PlayerBallAssigner
     
 def main():
 
-    video_frames_gen, fps = read_video('input_videos/bball_4.mp4')
+    video_frames_gen, fps = read_video('input_videos/duke.mp4')
 
     # Initialize services
     tracker = Tracker('models/models-new/best.pt')
@@ -22,7 +22,6 @@ def main():
 
     tracks = []
     team_ball_control = []
-    # May add frame count
 
     for frame_num, frame in enumerate(video_frames_gen):
         print(f'Processing frame {frame_num}')
@@ -35,8 +34,8 @@ def main():
             #team_assigner.assign_team_color(frame, tracks['players'][0])
 
         # Get tracks *Edit to recieve individual frames (Check video to see if prior frames/batches are necessary)
-        tracks = tracker.get_object_tracks(video_frames,
-                                       read_from_stub=False,
+        tracks = tracker.get_object_tracks(frame,
+                                       read_from_stub=True,
                                        stub_path='stubs/track_stubs.pkl')
         
         # Get object positions 
@@ -46,8 +45,8 @@ def main():
 
         # Assign ball acquisition
 
-        # Draw annotations on the current frame *Edit to do individual frames (may be functional already)
-        annotated_frame = tracker.draw_annotations(frame, tracks, frame_num, team_ball_control)
+        # Draw annotations on the current frame
+        annotated_frame = tracker.draw_annotations(frame, tracks, frame_num - 1, team_ball_control)
 
         # Write the annotated frame directly to the video
         video_writer.write(annotated_frame)

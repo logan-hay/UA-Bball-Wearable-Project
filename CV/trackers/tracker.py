@@ -186,33 +186,27 @@ class Tracker:
 
         return frame
 
-    def draw_annotations(self, video_frames, tracks, team_ball_control):
-        output_video_frames= []
-        for frame_num, frame in enumerate(video_frames):
-            frame = frame.copy()
-            #print(frame_num)
+    def draw_annotations(self, input_frame, tracks, frame_num, team_ball_control):
+        print(f'Drawing frame {frame_num} of {len(tracks["players"])}')
+        frame = input_frame.copy()
 
-            try:
-                player_dict = tracks["players"][frame_num]
-                ball_dict = tracks["ball"][frame_num]
+        player_dict = tracks["players"][frame_num]
+        ball_dict = tracks["ball"][frame_num]
 
-                # Draw Players
-                for track_id, player in player_dict.items():
-                    color = player.get("team_color",(0,0,255))
-                    frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+        # Draw Players
+        for track_id, player in player_dict.items():
+            color = (0,0,255)#player.get("team_color",(0,0,255))
+            frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
 
-                    if player.get('has_ball',False):
-                        frame = self.draw_traingle(frame, player["bbox"],(0,0,255))
+            if player.get('has_ball',False):
+                frame = self.draw_traingle(frame, player["bbox"],(0,0,255))
                 
-                # Draw ball 
-                for track_id, ball in ball_dict.items():
-                    frame = self.draw_traingle(frame, ball["bbox"],(0,255,0))
+        # Draw ball 
+        for track_id, ball in ball_dict.items():
+            frame = self.draw_traingle(frame, ball["bbox"],(0,255,0))
 
 
-                # Draw Team Ball Control
-                frame = self.draw_team_ball_control(frame, frame_num, team_ball_control)
+        # Draw Team Ball Control
+        #frame = self.draw_team_ball_control(frame, frame_num, team_ball_control)
 
-                output_video_frames.append(frame)
-            except: continue
-
-        return output_video_frames
+        return frame
