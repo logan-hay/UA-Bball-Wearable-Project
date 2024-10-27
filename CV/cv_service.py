@@ -13,7 +13,7 @@ from player_ball_assigner import PlayerBallAssigner
     
 def main():
 
-    video_frames_gen, fps = read_video('input_videos/duke.mp4')
+    video_frames_gen, fps = read_video('input_videos/bball_4.mp4')
 
     # Initialize services
     tracker = Tracker('models/models-new/best.pt')
@@ -29,14 +29,15 @@ def main():
         if frame_num == 0:
             # Initialize video writer
             frame_size = (frame.shape[1], frame.shape[0])  # (width, height)
-            video_writer = create_video_writer('output_videos/bball_4_output2.avi', fps, frame_size)
+            video_writer = create_video_writer('output_videos/fbf_bball4.avi', fps, frame_size)
 
             #team_assigner.assign_team_color(frame, tracks['players'][0])
 
         # Get tracks *Edit to recieve individual frames (Check video to see if prior frames/batches are necessary)
         tracks = tracker.get_object_tracks(frame,
-                                       read_from_stub=True,
-                                       stub_path='stubs/track_stubs.pkl')
+                                        frame_num,
+                                        read_from_stub=False,
+                                        stub_path='stubs/track_stubs.pkl')
         
         # Get object positions 
         tracker.add_position_to_tracks(tracks)

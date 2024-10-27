@@ -13,6 +13,10 @@ class Tracker:
     def __init__(self, model_path):
         self.model = YOLO(model_path) 
         self.tracker = sv.ByteTrack()
+        self.tracks={
+            "players":[],
+            "ball":[]
+        }
 
     def add_position_to_tracks(self,tracks):
         for object, object_tracks in tracks.items():
@@ -37,66 +41,54 @@ class Tracker:
 
         return ball_positions
 
-    def detect_frames(self, frames):
-        batch_size=20 
-        detections = [] 
-        print(frames[0])
-        print(type(frames[0]))
-        a = 1
-        print('yoyo')
-        for frame in frames[:-1]:
-            print(a)
-            a += 1
-            detections += self.model.predict(frame, conf=0.1)
-        return detections
+    # Changed to recieve one frame
+    def detect_frame(self, frame):
+        return self.model.predict(frame, conf=0.1)
 
-    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
+    def get_object_tracks(self, frame, frame_num, read_from_stub=False, stub_path=None):
         
         if read_from_stub and stub_path is not None and os.path.exists(stub_path):
             with open(stub_path,'rb') as f:
                 tracks = pickle.load(f)
             return tracks
 
-        detections = self.detect_frames(frames)
-
-        tracks={
-            "players":[],
-            "ball":[]
-        }
-
-        for frame_num, detection in enumerate(detections):
-            cls_names = detection.names
-            cls_names_inv = {v:k for k,v in cls_names.items()}
-
-            # Covert to supervision Detection format
-            detection_supervision = sv.Detections.from_ultralytics(detection)
-
-            # Track Objects
-            detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
-
-            tracks["players"].append({})
-            tracks["ball"].append({})
-
-            for frame_detection in detection_with_tracks:
-                bbox = frame_detection[0].tolist()
-                cls_id = frame_detection[3]
-                track_id = frame_detection[4]
-
-                if cls_id == cls_names_inv['Player']:
-                    tracks["players"][frame_num][track_id] = {"bbox":bbox}
+        detection = self.detect_frame(frame)[0]
             
-            for frame_detection in detection_supervision:
-                bbox = frame_detection[0].tolist()
-                cls_id = frame_detection[3]
+        cls_names = detection.names
+        cls_names_inv = {v:k for k,v in cls_names.items()}
 
-                if cls_id == cls_names_inv['Ball']:
-                    tracks["ball"][frame_num][1] = {"bbox":bbox}
+        # Covert to supervision Detection format
+        detection_supervision = sv.Detections.from_ultralytics(detection)
 
+        # Track Objects
+        detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
+
+        self.tracks["players"].append({})
+        self.tracks["ball"].append({})
+
+        # Track Player
+        for frame_detection in detection_with_tracks:
+            bbox = frame_detection[0].tolist()
+            cls_id = frame_detection[3]
+            track_id = frame_detection[4]
+
+            if cls_id == cls_names_inv['Player']:
+                self.tracks["players"][frame_num][track_id] = {"bbox":bbox}
+
+        # Track Ball    
+        for frame_detection in detection_supervision:
+            bbox = frame_detection[0].tolist()
+            cls_id = frame_detection[3]
+
+            if cls_id == cls_names_inv['Ball']:
+                self.tracks["ball"][frame_num][1] = {"bbox":bbox}
+
+        # Save stub * This needs to be moved to main so that it is called on finish, Or changed to append frames to the stub? (This would require a freah stub for each run)
         if stub_path is not None:
             with open(stub_path,'wb') as f:
-                pickle.dump(tracks,f)
+                pickle.dump(self.tracks,f)
 
-        return tracks
+        return self.tracks
     
     def draw_ellipse(self,frame,bbox,color,track_id=None):
         y2 = int(bbox[3])
@@ -146,7 +138,6 @@ class Tracker:
         return frame
 
     def draw_traingle(self,frame,bbox,color):
-        print('Drawing triangle for ball')
         y= int(bbox[1])
         x,_ = get_center_of_bbox(bbox)
 
@@ -187,7 +178,6 @@ class Tracker:
         return frame
 
     def draw_annotations(self, input_frame, tracks, frame_num, team_ball_control):
-        print(f'Drawing frame {frame_num} of {len(tracks["players"])}')
         frame = input_frame.copy()
 
         player_dict = tracks["players"][frame_num]
