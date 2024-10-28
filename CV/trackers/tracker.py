@@ -18,16 +18,16 @@ class Tracker:
             "ball":[]
         }
 
-    def add_position_to_tracks(self,tracks):
+    def add_position_to_tracks(self,tracks,frame_num):
         for object, object_tracks in tracks.items():
-            for frame_num, track in enumerate(object_tracks):
-                for track_id, track_info in track.items():
-                    bbox = track_info['bbox']
-                    if object == 'ball':
-                        position= get_center_of_bbox(bbox)
-                    else:
-                        position = get_foot_position(bbox)
-                    tracks[object][frame_num][track_id]['position'] = position
+            track = object_tracks[frame_num]
+            for track_id, track_info in track.items():
+                bbox = track_info['bbox']
+                if object == 'ball':
+                    position = get_center_of_bbox(bbox)
+                else:
+                    position = get_foot_position(bbox)
+                tracks[object][frame_num][track_id]['position'] = position
 
     def interpolate_ball_positions(self,ball_positions):
         ball_positions = [x.get(1,{}).get('bbox',[]) for x in ball_positions]
@@ -177,15 +177,15 @@ class Tracker:
 
         return frame
 
-    def draw_annotations(self, input_frame, tracks, frame_num, team_ball_control):
+    def draw_annotations(self, input_frame, track, frame_num, team_ball_control):
         frame = input_frame.copy()
 
-        player_dict = tracks["players"][frame_num]
-        ball_dict = tracks["ball"][frame_num]
+        player_dict = track["players"][frame_num]
+        ball_dict = track["ball"][frame_num]
 
         # Draw Players
         for track_id, player in player_dict.items():
-            color = (0,0,255)#player.get("team_color",(0,0,255))
+            color = player.get("team_color",(255,0,0))
             frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
 
             if player.get('has_ball',False):
